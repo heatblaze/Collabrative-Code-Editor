@@ -29,6 +29,7 @@ This project allows multiple users to edit code together live and run their code
 - Express.js (web server framework)
 - Socket.io (real-time communication)
 - Child Process Module (to run code on server)
+- Firebase (for real time collabration and user management)
 
 ### Others:
 - npm (Node Package Manager)
