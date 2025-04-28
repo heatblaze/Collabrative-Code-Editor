@@ -1,0 +1,10 @@
+collaborative-code-editor/
+├── .idea/                  # IDE settings (ignore this in GitHub usually)
+├── node_modules/            # Installed npm packages (should be in .gitignore)
+├── public/
+│   ├── index.html           # Frontend HTML
+│   ├── script.js            # Frontend JavaScript logic
+│   └── style.css            # Frontend styles
+├── package.json             # Project metadata and dependencies
+├── package-lock.json        # Dependency lock file
+├── server.js                # Backend server (Node.js + Socket.io)
