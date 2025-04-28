@@ -16,11 +16,24 @@ This project allows multiple users to edit code together live and run their code
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠 Tech Stack
+### Frontend:
+- HTML5
+- CSS3
+- Tailwind CSS (for responsive and modern UI)
+- JavaScript
+- Monaco Editor (code editor component)
 
-- **Frontend:** HTML, CSS, JavaScript, [Monaco Editor](https://microsoft.github.io/monaco-editor/)
-- **Backend:** Node.js, Express.js, Socket.io
-- **Other Tools:** Child Process (for executing server-side code)
+### Backend:
+- Node.js
+- Express.js (web server framework)
+- Socket.io (real-time communication)
+- Child Process Module (to run code on server)
+
+### Others:
+- npm (Node Package Manager)
+- VS Code (for development)
+
 
 ---
 
@@ -63,7 +76,8 @@ Go to http://localhost:3000
 ---
 
 ## 🖼️ Screenshots
-![sign in]()
+![sign in](sign_in.png)
+![editor gui](editor_gui.png)
 
 ---
 
