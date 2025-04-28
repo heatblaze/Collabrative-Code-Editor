@@ -1,1 +1,204 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Code Editor</title>
+    
+    <!-- Firebase and Socket.io CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/firebase@9.0.0/dist/firebase-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@9.0.0/dist/firebase-auth.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@9.0.0/dist/firebase-firestore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client/dist/socket.io.min.js"></script>
+    
+    <!-- Monaco Editor CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.33.0/min/vs/loader.js"></script>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body style="background: linear-gradient(to right, #6F5DF5, #B261EA, #F564DF);" class="min-h-screen flex items-center justify-center">
+
+    <!-- Sign In Page -->
+    <div id="sign-in-page" class="w-full sm:w-96 bg-white/30 backdrop-blur-md border border-white/20 p-8 rounded-xl shadow-lg transform transition-all duration-500 hover:scale-105 ease-in-out">
+        <h2 class="text-3xl font-bold text-center text-gray-700 mb-6">Sign In</h2>
+
+        <!-- Sign In Form -->
+        <div id="sign-in-form" class="space-y-4">
+            <button id="sign-in-btn" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200">
+                Sign In Anonymously
+            </button>
+            <p class="text-sm text-center text-gray-600">By signing in, you agree to our terms and conditions.</p>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="hidden justify-center items-center text-center">
+            <svg class="animate-spin w-12 h-12 mx-auto text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                <path fill="currentColor" d="M4 12a8 8 0 0116 0 8 8 0 01-16 0z" class="opacity-75"></path>
+            </svg>
+            <p class="mt-4 text-white">Signing in...</p>
+        </div>
+    </div>
+
+    <!-- Collaborative Code Editor -->
+    <div id="editor-page" class="hidden w-full sm:w-3/4 bg-white p-8 rounded-xl shadow-lg space-y-4">
+        <div id="editor" class="border-2 border-gray-400 rounded-lg shadow-md" style="height: 400px;"></div>
+
+        <!-- Language Selector -->
+        <div class="flex justify-between items-center space-x-4">
+            <select id="language-selector" class="border p-2 rounded-md">
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <!-- Add more languages as needed -->
+            </select>
+            <button id="run-btn" class="bg-green-500 text-white px-4 py-2 rounded">Run</button>
+            <button id="save-btn" class="bg-blue-500 text-white px-4 py-2 rounded">Save</button>
+        </div>
+
+        <!-- Output Box -->
+        <div id="output-box" class="mt-4 p-4 bg-gray-800 text-white rounded-md">
+            <h3 class="font-bold">Output:</h3>
+            <pre id="output-content" class="whitespace-pre-wrap overflow-auto">Waiting for code execution...</pre>
+        </div>
+
+        <!-- Terminal -->
+        <div id="terminal" class="mt-4 p-4 bg-black text-white rounded-md">
+            <h3 class="font-bold">Terminal:</h3>
+            <textarea id="terminal-content" class="whitespace-pre-wrap overflow-auto w-full h-32 bg-black text-white" placeholder="Type here..." rows="10"></textarea>
+        </div>
+
+        <div id="user-info" class="flex justify-between items-center space-x-4 mt-4">
+            <button id="sign-out-btn" class="bg-red-500 text-white px-4 py-2 rounded hidden">Sign Out</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase Configuration
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+        import { getAuth, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
+
+        // Firebase Configuration (use your own config from Firebase Console)
+        const firebaseConfig = {
+          apiKey: "API_KEY",
+          authDomain: "DOMAIN",
+          projectId: "ID",
+          storageBucket: "BUCKET",
+          messagingSenderId: "S_ID",    
+          appId: "APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let editor;
+        let socket;
+
+        // Save Button Click Event
+    document.getElementById('save-btn').addEventListener('click', () => {
+    const code = editor.getValue();
+    const filename = 'codefile.txt';  // You can change the file name or add logic for dynamic naming
+
+    const blob = new Blob([code], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();  // Trigger the file download
+});
+
+        // Monaco Editor Setup
+        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.33.0/min/vs' } });
+
+        window.onload = () => {
+            // Initialize Monaco Editor
+            require(['vs/editor/editor.main'], function () {
+                editor = monaco.editor.create(document.getElementById('editor'), {
+                    value: '',
+                    language: 'javascript',
+                    theme: 'vs-dark',
+                    automaticLayout: true
+                });
+
+                // Socket.IO Client Initialization
+                socket = io("http://localhost:3000");  // Ensure the Socket server is running
+
+                // Language Selector Change
+                document.getElementById('language-selector').addEventListener('change', (e) => {
+                    const language = e.target.value;
+                    editor.getModel().setLanguage(language);
+                });
+
+                // Run Button Click Event
+                document.getElementById('run-btn').addEventListener('click', () => {
+    const code = editor.getValue();
+    const language = document.getElementById('language-selector').value;
+
+    console.log('Code:', code);  // Check if the code is correctly retrieved
+    console.log('Language:', language);  // Check the selected language
+
+    // Emit the code to the server
+    socket.emit('run-code', { code, language });
+});
+
+// Listen for code execution output from the server
+socket.on('code-output', (data) => {
+    document.getElementById('output-content').textContent = data.output || 'No output available';
+    document.getElementById('terminal-content').textContent = data.terminal || 'No terminal output available';
+});
+            });
+        };
+
+        // Sign In Anonymously
+        document.getElementById('sign-in-btn').addEventListener('click', async () => {
+            try {
+                const userCredential = await signInAnonymously(auth);
+                console.log('Signed in anonymously:', userCredential);
+                document.getElementById('sign-in-page').classList.add('hidden');
+                document.getElementById('editor-page').classList.remove('hidden');
+                document.getElementById('sign-out-btn').classList.remove('hidden'); // Show the sign-out button
+                loadCodeFromFirestore();
+            } catch (error) {
+                console.error('Sign-in error:', error.message);
+            }
+        });
+
+        // Sign Out
+        document.getElementById('sign-out-btn').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                console.log('Signed out');
+                document.getElementById('sign-in-page').classList.remove('hidden');
+                document.getElementById('editor-page').classList.add('hidden');
+                document.getElementById('sign-out-btn').classList.add('hidden');
+            } catch (error) {
+                console.error('Sign-out error:', error.message);
+            }
+        });
+
+        // Save Code to Firestore
+        const saveCodeToFirestore = async (code) => {
+    const user = auth.currentUser;
+    if (user) {
+        const codeRef = doc(db, 'user_codes', user.uid);
+        await setDoc(codeRef, { code });
+    }
+};
+
+// Debounce code changes to save it periodically
+let debounceTimeout;
+const DEBOUNCE_DELAY = 500;
+
+editor.getModel().onDidChangeContent(() => {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+        const code = editor.getValue();
+        saveCodeToFirestore(code);  // Save code after delay
+    }, DEBOUNCE_DELAY);
+});
+    </script>
+</body>
+</html>
