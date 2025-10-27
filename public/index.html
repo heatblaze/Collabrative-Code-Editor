@@ -98,18 +98,6 @@
         let editor;
         let socket;
 
-        // Save Button Click Event
-    document.getElementById('save-btn').addEventListener('click', () => {
-    const code = editor.getValue();
-    const filename = 'codefile.txt';  // You can change the file name or add logic for dynamic naming
-
-    const blob = new Blob([code], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();  // Trigger the file download
-});
-
         // Monaco Editor Setup
         require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.33.0/min/vs' } });
 
@@ -124,7 +112,7 @@
                 });
 
                 // Socket.IO Client Initialization
-                socket = io("http://localhost:3000");  // Ensure the Socket server is running
+                socket = io("http://localhost:3000");
 
                 // Language Selector Change
                 document.getElementById('language-selector').addEventListener('change', (e) => {
@@ -132,24 +120,59 @@
                     editor.getModel().setLanguage(language);
                 });
 
+                // Save Button Click Event
+                document.getElementById('save-btn').addEventListener('click', () => {
+                    const code = editor.getValue();
+                    const filename = 'codefile.txt';
+
+                    const blob = new Blob([code], { type: 'text/plain' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    link.click();
+                });
+
                 // Run Button Click Event
                 document.getElementById('run-btn').addEventListener('click', () => {
-    const code = editor.getValue();
-    const language = document.getElementById('language-selector').value;
+                    const code = editor.getValue();
+                    const language = document.getElementById('language-selector').value;
 
-    console.log('Code:', code);  // Check if the code is correctly retrieved
-    console.log('Language:', language);  // Check the selected language
+                    console.log('Code:', code);
+                    console.log('Language:', language);
 
-    // Emit the code to the server
-    socket.emit('run-code', { code, language });
-});
+                    socket.emit('run-code', { code, language });
+                });
 
-// Listen for code execution output from the server
-socket.on('code-output', (data) => {
-    document.getElementById('output-content').textContent = data.output || 'No output available';
-    document.getElementById('terminal-content').textContent = data.terminal || 'No terminal output available';
-});
+                // Listen for code execution output from the server
+                socket.on('code-output', (data) => {
+                    document.getElementById('output-content').textContent = data.output || 'No output available';
+                    document.getElementById('terminal-content').textContent = data.terminal || 'No terminal output available';
+                });
+
+                // Debounce code changes to save it periodically
+                let debounceTimeout;
+                const DEBOUNCE_DELAY = 500;
+
+                editor.getModel().onDidChangeContent(() => {
+                    clearTimeout(debounceTimeout);
+                    debounceTimeout = setTimeout(() => {
+                        const code = editor.getValue();
+                        saveCodeToFirestore(code);
+                    }, DEBOUNCE_DELAY);
+                });
             });
+        };
+
+        // Load Code from Firestore
+        const loadCodeFromFirestore = async () => {
+            const user = auth.currentUser;
+            if (user) {
+                const codeRef = doc(db, 'user_codes', user.uid);
+                const docSnap = await getDoc(codeRef);
+                if (docSnap.exists()) {
+                    editor.setValue(docSnap.data().code);
+                }
+            }
         };
 
         // Sign In Anonymously
@@ -181,24 +204,12 @@ socket.on('code-output', (data) => {
 
         // Save Code to Firestore
         const saveCodeToFirestore = async (code) => {
-    const user = auth.currentUser;
-    if (user) {
-        const codeRef = doc(db, 'user_codes', user.uid);
-        await setDoc(codeRef, { code });
-    }
-};
-
-// Debounce code changes to save it periodically
-let debounceTimeout;
-const DEBOUNCE_DELAY = 500;
-
-editor.getModel().onDidChangeContent(() => {
-    clearTimeout(debounceTimeout);
-    debounceTimeout = setTimeout(() => {
-        const code = editor.getValue();
-        saveCodeToFirestore(code);  // Save code after delay
-    }, DEBOUNCE_DELAY);
-});
+            const user = auth.currentUser;
+            if (user) {
+                const codeRef = doc(db, 'user_codes', user.uid);
+                await setDoc(codeRef, { code });
+            }
+        };
     </script>
 </body>
 </html>
